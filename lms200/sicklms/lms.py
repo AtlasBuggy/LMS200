@@ -15,7 +15,7 @@ from sicklms.constants import *
 class SickLMS(ThreadedStream):
     def __init__(self, port_address=None, baud=38400, enabled=True, name=None, log_level=None,
                  mode=SICK_OP_MODE_MONITOR_STREAM_VALUES, mode_params=None):
-        super(SickLMS, self).__init__(enabled, name, log_level)
+        super(SickLMS, self).__init__(enabled, log_level, name)
 
         self.session_baud = baud
         if type(mode) == int and mode in sick_lms_operating_modes:
