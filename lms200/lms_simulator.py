@@ -22,10 +22,13 @@ class Simulator(LogParser):
     def stopped(self):
         self.lms_parser.stopped()
 
+# file_name = "logs/2017_Jun_15/11;00;13.log.xz"
+file_name = "logs/2017_Aug_05/19;13;49.log.xz"
+
 robot = Robot(log_level=10, write=False)
 
 lms200 = MyLMS(make_image=False)
-simulator = Simulator("logs/2017_Jun_15/11;00;13.log.xz")
+simulator = Simulator(file_name)
 
 simulator.subscribe(Subscription(simulator.lms_parser_tag, lms200))
 

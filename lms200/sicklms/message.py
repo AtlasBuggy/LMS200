@@ -7,10 +7,12 @@ class Message:
         self.checksum = checksum
         self.buffer = buffer
 
+        self.full_message = b''
+
     def append_byte(self, input_byte):
         self.buffer += input_byte
 
-    def make_message(self, payload, checksum):
+    def make_message(self, length, payload, checksum):
         self.payload = payload
 
         calc_checksum = Message.crc(self.buffer[:-2])
@@ -18,6 +20,8 @@ class Message:
         if calc_checksum != checksum:
             raise SickIOException("Invalid checksum! found: %s != calculated: %s, %s" % (
                 checksum, calc_checksum, repr(self.buffer)))
+
+        self.full_message = b'\x20\x80' + Message.int_to_byte(length, 2) + payload + Message.int_to_byte(checksum, 2)
 
     def reset(self):
         self.payload = b''
@@ -40,7 +44,6 @@ class Message:
             return number.to_bytes(size, byteorder='big', signed=False)[::-1]
         except OverflowError as error:
             raise OverflowError("%s is too big to be converted to size %s" % (number, size)) from error
-
 
     @property
     def code(self):

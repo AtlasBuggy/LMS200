@@ -288,6 +288,16 @@ class SickConfigException(TimeoutError):
     pass
 
 
+def get_max_distance(measuring_mode):
+    if measuring_mode in (SICK_MS_MODE_8_OR_80_FA_FB_DAZZLE, SICK_MS_MODE_8_OR_80_REFLECTOR, SICK_MS_MODE_8_OR_80_FA_FB_FC):
+        return 8.0
+    elif measuring_mode in (SICK_MS_MODE_16_REFLECTOR, SICK_MS_MODE_16_FA_FB):
+        return 16.0
+    elif measuring_mode in (SICK_MS_MODE_32_REFLECTOR, SICK_MS_MODE_32_FA, SICK_MS_MODE_32_IMMEDIATE):
+        return 32.0
+    else:
+        return 0.0
+
 def availability_to_string(availability_code):
     if availability_code == 0:
         return "Default (unspecified)"

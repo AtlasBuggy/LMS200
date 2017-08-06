@@ -56,12 +56,13 @@ class SickLMS(ThreadedStream):
         self.serial_ref = None
         self._timeout = DEFAULT_SICK_LMS_SICK_MESSAGE_TIMEOUT
 
-        self.recv_message = Message()
-        self.send_message = Message()
+        self.recv_container = Message()
+        self.send_container = Message()
 
         self.config_has_updated = False
-
+        self._has_initialized = False
         self.update_rate = 0
+        self.max_distance = 0.0
 
         self.distance_log_tag = "[distance]"
 
@@ -81,7 +82,7 @@ class SickLMS(ThreadedStream):
         print(self.status_string())
         self.logger.debug(self.status_string(one_line=True))
 
-        while self.running():
+        while self.is_running():
             t0 = time.time()
             if self.operating_status.operating_mode == SICK_OP_MODE_MONITOR_STREAM_VALUES:
                 self.get_scan()
@@ -117,6 +118,7 @@ class SickLMS(ThreadedStream):
         else:
             conversion = 0.001
         self.distances *= conversion
+        # self.distances[self.distances > self.max_distance] = 0.0  # causes SIGBUS errors...
 
     def _make_angles(self):
         self.detection_angle_degrees = self.operating_status.scan_angle
@@ -140,23 +142,25 @@ class SickLMS(ThreadedStream):
             self.logger.debug("Baud successfully set")
             session_baud_set = True
         except (SickTimeoutException, SickIOException):
-            self.logger.debug("Failed to set requested baud rate (%s). "
-                              "Attempting to detect LMS baud rate..." % self.session_baud)
+            self.logger.warning("Failed to set requested baud rate (%s). "
+                                "Attempting to detect LMS baud rate... Please wait while "
+                                "a connection is attempted. This may take some time." % self.session_baud)
 
         if not session_baud_set:
             discovered_baud = None
             for test_baud in sick_lms_baud_codes.keys():
-                self.logger.debug("Trying baud: %s" % test_baud)
+                self.logger.info("Trying baud: %s" % test_baud)
 
                 if self._test_baud(test_baud):
                     discovered_baud = test_baud
                     break
+                self.serial_ref.flush()
 
             if discovered_baud is None:
-                self.logger.error("Failed to detect baud rate!")
+                self.logger.warning("Failed to detect baud rate!")
                 raise SickIOException("Failed to detect baud rate!")
 
-            self.logger.debug("Setting baud to: %s" % discovered_baud)
+            self.logger.info("Setting baud to: %s" % discovered_baud)
             self._set_session_baud(discovered_baud)
 
         self._get_type()
@@ -165,19 +169,24 @@ class SickLMS(ThreadedStream):
 
         self._switch_opmode(self.session_mode, self.session_mode_params)
 
+        self._has_initialized = True
+
     def _teardown(self):
         self.logger.debug("Tearing down connection")
         if self._is_open():
-            try:
-                self.logger.debug("Switching to monitor request mode")
-                self._set_opmode_monitor_request()
+            if self._has_initialized:
+                try:
+                    self.logger.debug("Switching to monitor request mode")
+                    self._set_opmode_monitor_request()
 
-                self.logger.debug("Changing to default baud")
-                self._set_session_baud(DEFAULT_SICK_LMS_SICK_BAUD)
-            except BaseException:
-                self.logger.exception("Error encountered while tearing down")
-                self._teardown_connection()
-                raise
+                    self.logger.debug("Changing to default baud")
+                    self._set_session_baud(DEFAULT_SICK_LMS_SICK_BAUD)
+                except BaseException:
+                    self.logger.exception("Error encountered while tearing down")
+                    self._teardown_connection()
+                    raise
+            else:
+                self.logger.warning("Never initialized. Skipping teardown")
             self._teardown_connection()
         else:
             self.logger.debug("Connection was not open!")
@@ -231,10 +240,10 @@ class SickLMS(ThreadedStream):
             raise SickConfigException("Invalid baud rate: %s" % baud)
         payload = b'\x20'
         payload += Message.int_to_byte(sick_lms_baud_codes[baud], 1)
-        self.send_message.payload = payload
+        self.send_container.payload = payload
 
         self.logger.debug("Changing baud to: %s" % baud)
-        self._send_message_and_get_reply(self.send_message.make_buffer())
+        self._send_message_and_get_reply(self.send_container.make_buffer())
         self._set_terminal_baud(baud)
         time.sleep(0.25)
         self.serial_ref.flush()
@@ -250,10 +259,10 @@ class SickLMS(ThreadedStream):
                 self._get_errors()
                 return True
 
-            except SickIOException as error:
+            except SickIOException:
                 if attempts > DEFAULT_SICK_LMS_NUM_TRIES:
-                    self.logger.exception("Encountered errors while testing baud. Max attempts reached")
-                    raise error
+                    self.logger.error("Encountered errors while testing baud. Max attempts reached")
+                    return False
             except (SickTimeoutException, SickConfigException):
                 self.logger.exception("Encountered errors while testing baud")
                 return False
@@ -294,12 +303,12 @@ class SickLMS(ThreadedStream):
             payload += sick_lms_scan_angles[scan_angle]
             payload += sick_lms_scan_resolutions[scan_resolution]
 
-            self.send_message.payload = payload
+            self.send_container.payload = payload
 
             # This is done since the Sick stops sending data if the variant is reset midstream.
             self._set_opmode_monitor_request()
 
-            response = self._send_message_and_get_reply(self.send_message.make_buffer())
+            response = self._send_message_and_get_reply(self.send_container.make_buffer())
             if response.payload[1] != 0x01:
                 raise SickConfigException("Configuration was unsuccessful!")
 
@@ -334,6 +343,8 @@ class SickLMS(ThreadedStream):
             self.config.measuring_mode = measuring_mode
             self.config_has_updated = True
 
+        self.max_distance = get_max_distance(measuring_mode)
+
     def set_availability(self, availability_flag=SICK_FLAG_AVAILABILITY_DEFAULT):
         if availability_flag > 7:
             raise SickConfigException("Invalid availability: %s" % repr(availability_flag))
@@ -353,6 +364,12 @@ class SickLMS(ThreadedStream):
     def get_scan(self, reflect_values=False):
         self._set_opmode_monitor_stream()
         response = self._recv_message()
+
+        # self._set_opmode_monitor_request()
+        # self.send_message.payload = b'\x30\x01'
+        # buffer = self.send_message.make_buffer()
+        # response = self._send_message_and_get_reply(buffer)
+
         if reflect_values:
             if response.payload[0] != 0xc4:
                 raise SickIOException("Invalid response for current measurement mode: %s" % response)
@@ -412,11 +429,10 @@ class SickLMS(ThreadedStream):
 
     # ----- internal getters -----
     def _get_errors(self):
-        payload = b'\x32'
-        self.send_message.payload = payload
+        self.send_container.payload = b'\x32'
 
         self.logger.debug("Getting errors")
-        response = self._send_message_and_get_reply(self.send_message.make_buffer())
+        response = self._send_message_and_get_reply(self.send_container.make_buffer())
 
         num_errors = int((len(response.payload) - 2) / 2)
 
@@ -434,10 +450,10 @@ class SickLMS(ThreadedStream):
             self.logger.error("Encountered errors: %s, %s" % (error_type_buffer, error_num_buffer))
 
     def _get_status(self):
-        self.send_message.payload = b'\x31'
+        self.send_container.payload = b'\x31'
         self.logger.debug("Getting status")
 
-        response = self._send_message_and_get_reply(self.send_message.make_buffer())
+        response = self._send_message_and_get_reply(self.send_container.make_buffer())
 
         try:
             self.operating_status.parse_status(response)
@@ -452,14 +468,14 @@ class SickLMS(ThreadedStream):
         self._make_angles()
 
     def _get_config(self):
-        self.send_message.payload = b'\x74'
+        self.send_container.payload = b'\x74'
         self.logger.debug("Getting configuration")
-        response = self._send_message_and_get_reply(self.send_message.make_buffer())
+        response = self._send_message_and_get_reply(self.send_container.make_buffer())
         self.config.parse_config_profile(response)
 
     def _get_type(self):
-        self.send_message.payload = b'\x3a'
-        response = self._send_message_and_get_reply(self.send_message.make_buffer())
+        self.send_container.payload = b'\x3a'
+        response = self._send_message_and_get_reply(self.send_container.make_buffer())
 
         model_string = response.parse_string(1).split(";")
 
@@ -507,10 +523,10 @@ class SickLMS(ThreadedStream):
             self.logger.debug("Current configuration unchanged!")
 
     def reset(self):
-        self.send_message.payload = b'\x10'
+        self.send_container.payload = b'\x10'
         self._timeout = 60
         self.logger.debug("Resetting...")
-        self._send_message_and_get_reply(self.send_message.make_buffer(), reply_code=0x91)
+        self._send_message_and_get_reply(self.send_container.make_buffer(), reply_code=0x91)
         self._set_terminal_baud(DEFAULT_SICK_LMS_SICK_BAUD)
 
         self.logger.debug("Back online!")
@@ -620,43 +636,61 @@ class SickLMS(ThreadedStream):
 
     # ----- telegram transfer and protocol methods -----
 
-    def _send_message_and_get_reply(self, message: bytes,
-                                    num_tries=DEFAULT_SICK_LMS_NUM_TRIES, reply_code=None) -> Message:
-        self.logger.debug("writing: %s" % message)
-        self.serial_ref.write(message)
-
-        if not self._check_for_ack():
-            raise SickConfigException("Command not received correctly!")
-
-        response = None
+    def _send_message_and_get_reply(self, message: bytes, num_tries=DEFAULT_SICK_LMS_NUM_TRIES, reply_code=None):
         for attempt in range(num_tries):
             try:
-                response = self._recv_message()
-                break
-            except SickTimeoutException:
-                self.logger.debug("Recevied timed out. Attempt %s of %s" % (attempt + 1, num_tries))
-        if response is None:
-            raise SickTimeoutException("Failed to get reply after %s attempts" % num_tries)
+                self._send_message(message)
+                return self._recv_message(reply_code)
 
+            except SickTimeoutException as error:
+                self.logger.exception(error)
+
+                if attempt == num_tries - 1:
+                    raise
+
+            except BaseException as error:
+                self.logger.exception(error)
+                raise
+
+        raise SickIOException("Maximum of attempts reached for message: %s" % repr(message))
+
+    def _send_message(self, message: bytes):
+        self.serial_ref.write(message)
+        if not self._check_for_ack():
+            raise SickIOException("Command not received correctly!")
+
+    def _recv_message(self, reply_code=None):
+        satisfied = False
+        t0 = time.time()
+
+        while not satisfied:
+            if time.time() - t0 > self._timeout:
+                raise SickTimeoutException("Read timed out!!")
+
+            if self._read_8() == 0x02:
+                if self._read_8() == 0x80:
+                    satisfied = True
+
+        response = self._parse_response()
         if reply_code is not None:
             if response.code != reply_code:
-                raise SickConfigException("Reply code doesn't match!")
+                raise SickIOException("Reply codes don't match (expected: '%s', got '%s')" % (
+                    reply_code, response.code))
 
         return response
 
-    def _recv_message(self) -> Message:
-        self.recv_message.reset()
+    def _parse_response(self):
+        self.recv_container.reset()
 
-        if self._read_8() == 0x02:
-            if self._read_8() == 0x80:
-                length = self._read_16()
-                payload = self._read(length)
-                checksum = self._read_16()
+        self.recv_container.append_byte(b'\x02\x80')  # append erased packet header
+        length = self._read_16()
+        payload = self._read(length)
+        checksum = self._read_16()
 
-                self.recv_message.make_message(payload, checksum)
+        self.logger.debug("Got message: length = %s, payload = %s, checksum = %s" % (length, payload, checksum))
 
-        # self.logger.debug("received: %s" % self.recv_message.buffer)
-        return self.recv_message
+        self.recv_container.make_message(length, payload, checksum)
+        return self.recv_container
 
     def _check_for_ack(self):
         ack = b'\x00'
@@ -669,16 +703,24 @@ class SickLMS(ThreadedStream):
                 responses += ack
                 if ack == b'\x06':
                     return True
-                elif ack == b'\x15' and attempts > DEFAULT_SICK_LMS_NUM_TRIES:
+                elif ack == b'\x15':
                     return False
+            else:
+                self.logger.debug("Invalid ACK check. Nothing received!!")
+                return False
 
-                if time.time() - t0 > self._timeout:
-                    attempts += 1
-                    t0 = time.time()
-                    self.logger.debug("ack check timed out. Attempt %s of %s" % (attempts, DEFAULT_SICK_LMS_NUM_TRIES))
+            if time.time() - t0 > self._timeout:
+                attempts += 1
+                t0 = time.time()
+                self.logger.debug("ack check timed out. Attempt %s of %s" % (attempts, DEFAULT_SICK_LMS_NUM_TRIES))
+
+            if attempts > DEFAULT_SICK_LMS_NUM_TRIES:
+                raise SickTimeoutException("Failed to receive ACK. Timed out!!")
 
         try:
-            raise SickIOException("Invalid value received (neither ACK, nor NACK): %s" % responses)
+            message = "Invalid value received (neither ACK, nor NACK): %s" % responses
+            self.logger.debug(message)
+            raise SickIOException(message)
         except SickIOException as error:
             self.logger.exception(error)
             raise
@@ -693,7 +735,8 @@ class SickLMS(ThreadedStream):
             if len(response) == n:
                 break
         if time.time() - t0 > self._timeout:
-            self.logger.error("Serial read timed out!")
+            self.logger.debug("Serial read timed out!")
+            raise SickTimeoutException("Serial read timed out!")
 
         return response
 
@@ -708,7 +751,7 @@ class SickLMS(ThreadedStream):
         if len(result) == 0:
             raise SickTimeoutException("Failed to read serial!")
 
-        self.recv_message.append_byte(result)
+        self.recv_container.append_byte(result)
         return result
 
     def _read_8(self) -> int:
@@ -747,14 +790,14 @@ class SickLMS(ThreadedStream):
 
     def status_string(self, one_line=False):
         string = "'%s' status:\n" \
-                 "Variant: %s\n" \
-                 "Type: %s\n" \
-                 "Sensor status: %s\n" \
-                 "Scan angle: %sº\n" \
-                 "Scan resolution: %sº\n" \
-                 "Operating mode: %s\n" \
-                 "Measuring mode: %s\n" \
-                 "Measuring units: %s\n" % (
+                 "\tVariant: %s\n" \
+                 "\tType: %s\n" \
+                 "\tSensor status: %s\n" \
+                 "\tScan angle: %sº\n" \
+                 "\tScan resolution: %sº\n" \
+                 "\tOperating mode: %s\n" \
+                 "\tMeasuring mode: %s\n" \
+                 "\tMeasuring units: %s\n" % (
                      self.name, variant_to_string(self.operating_status.variant), supported_models[self.sick_type],
                      status_to_string(self.operating_status.device_status), self.operating_status.scan_angle,
                      self.operating_status.scan_resolution * 0.01,

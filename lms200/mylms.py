@@ -21,7 +21,8 @@ class MyLMS(SickLMS):
 
         self.plotter = LivePlotter(2, self.scan_plot, self.slam_plot, enabled=True,
                                    default_resize_behavior=False,
-                                   matplotlib_events=dict(key_press_event=self.key_press_fn))
+                                   matplotlib_events=dict(key_press_event=self.key_press_fn),
+                                   close_when_finished=True)
 
         self.plotter.get_axis(self.slam_plot).set_aspect("auto")
         self.plotter.get_axis(self.slam_plot).set_autoscale_on(True)
