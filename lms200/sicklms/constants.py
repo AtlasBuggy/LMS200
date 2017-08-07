@@ -1,33 +1,41 @@
+"""
+Constant values associated with LMS devices
+"""
+
+
 def make_reversible(d):
+    """
+    Make a dictionary reversible.
+    Keys can be referenced by value and values can be referenced by keys
+    
+    :param d: a dictionary 
+    :return: a reversible dictionary 
+    """
     d.update({v: k for k, v in d.items()})
 
 
-DEFAULT_SICK_LMS_SICK_BAUD = 9600
-DEFAULT_SICK_LMS_HOST_ADDRESS = 0x80
-DEFAULT_SICK_LMS_SICK_ADDRESS = 0x00
-DEFAULT_SICK_LMS_SICK_PASSWORD = b"SICK_LMS"
-DEFAULT_SICK_LMS_SICK_MESSAGE_TIMEOUT = 1.5
-DEFAULT_SICK_LMS_SICK_SWITCH_MODE_TIMEOUT = 3
-DEFAULT_SICK_LMS_SICK_MEAN_VALUES_MESSAGE_TIMEOUT = 15
-DEFAULT_SICK_LMS_SICK_CONFIG_MESSAGE_TIMEOUT = 15
-DEFAULT_SICK_LMS_BYTE_INTERVAL = 0.000055
-DEFAULT_SICK_LMS_NUM_TRIES = 3
+###
+### default values for the lms
+###
+DEFAULT_SICK_LMS_SICK_BAUD = 9600  # default serial baud rate
+DEFAULT_SICK_LMS_MESSAGE_HEADER = 0x02  # the first character of every message
+DEFAULT_SICK_LMS_MESSAGE_HEADER_BYTE = b'\x02'
+DEFAULT_SICK_LMS_HOST_ADDRESS = 0x80  # the second character of every received message
+DEFAULT_SICK_LMS_HOST_ADDRESS_BYTE = b'\x80'
+DEFAULT_SICK_LMS_SICK_ADDRESS = 0x00  # default address to send command to
+DEFAULT_SICK_LMS_SICK_PASSWORD = b"SICK_LMS"  # password to unlock LMS configuration
+DEFAULT_SICK_LMS_SICK_MESSAGE_TIMEOUT = 1.5  # time to wait for giving up on receiving a character from serial
+DEFAULT_SICK_LMS_SICK_SWITCH_MODE_TIMEOUT = 3  # time to wait between switching modes (seconds)
+DEFAULT_SICK_LMS_SICK_MEAN_VALUES_MESSAGE_TIMEOUT = 15  # time to wait for a mean value measurement (seconds)
+DEFAULT_SICK_LMS_SICK_CONFIG_MESSAGE_TIMEOUT = 15  # time to wait for lms to finish configuring (seconds)
+DEFAULT_SICK_LMS_SICK_MAX_TIMEOUT = 0.25  # Maximum time to wait for a single character (seconds)
+DEFAULT_SICK_LMS_BYTE_INTERVAL = 0.000055  # time to wait between sending bytes (seconds)
+DEFAULT_SICK_LMS_NUM_TRIES = 3  # number of attempts to give a command before giving up
+SICK_MAX_NUM_MEASUREMENTS = 721  # the maximum number of measurements for any scan
 
-SICK_MAX_NUM_MEASUREMENTS = 721
-
-definitions = {
-    DEFAULT_SICK_LMS_SICK_BAUD                       : "DEFAULT_SICK_LMS_SICK_BAUD",
-    DEFAULT_SICK_LMS_HOST_ADDRESS                    : "DEFAULT_SICK_LMS_HOST_ADDRESS",
-    DEFAULT_SICK_LMS_SICK_ADDRESS                    : "DEFAULT_SICK_LMS_SICK_ADDRESS",
-    DEFAULT_SICK_LMS_SICK_PASSWORD                   : "DEFAULT_SICK_LMS_SICK_PASSWORD",
-    DEFAULT_SICK_LMS_SICK_MESSAGE_TIMEOUT            : "DEFAULT_SICK_LMS_SICK_MESSAGE_TIMEOUT",
-    DEFAULT_SICK_LMS_SICK_SWITCH_MODE_TIMEOUT        : "DEFAULT_SICK_LMS_SICK_SWITCH_MODE_TIMEOUT",
-    DEFAULT_SICK_LMS_SICK_MEAN_VALUES_MESSAGE_TIMEOUT: "DEFAULT_SICK_LMS_SICK_MEAN_VALUES_MESSAGE_TIMEOUT",
-    DEFAULT_SICK_LMS_SICK_CONFIG_MESSAGE_TIMEOUT     : "DEFAULT_SICK_LMS_SICK_CONFIG_MESSAGE_TIMEOUT",
-    DEFAULT_SICK_LMS_BYTE_INTERVAL                   : "DEFAULT_SICK_LMS_BYTE_INTERVAL",
-    DEFAULT_SICK_LMS_NUM_TRIES                       : "DEFAULT_SICK_LMS_NUM_TRIES",
-}
-
+###
+### LMS models supported
+###
 SICK_LMS_TYPE_200_30106 = 0  # Sick LMS type 200-30106
 
 # Supported 211 models
@@ -61,30 +69,33 @@ SICK_LMS_TYPE_UNKNOWN = 0xff
 
 supported_models = {
     SICK_LMS_TYPE_200_S18063: "LMS200;S18063",
-    SICK_LMS_TYPE_200_30106: "LMS200;30106",
-    SICK_LMS_TYPE_211_30106: "LMS211;30106",
-    SICK_LMS_TYPE_211_30206: "LMS211;30206",
-    SICK_LMS_TYPE_211_S07  : "LMS211;S07",
-    SICK_LMS_TYPE_211_S14  : "LMS211;S14",
-    SICK_LMS_TYPE_211_S15  : "LMS211;S15",
-    SICK_LMS_TYPE_211_S19  : "LMS211;S19",
-    SICK_LMS_TYPE_211_S20  : "LMS211;S20",
-    SICK_LMS_TYPE_221_30106: "LMS220;30106",
-    SICK_LMS_TYPE_221_30206: "LMS221;30106",
-    SICK_LMS_TYPE_221_S07  : "LMS221;30206",
-    SICK_LMS_TYPE_221_S14  : "LMS221;S07",
-    SICK_LMS_TYPE_221_S15  : "LMS221;S14",
-    SICK_LMS_TYPE_221_S16  : "LMS221;S15",
-    SICK_LMS_TYPE_221_S19  : "LMS221;S16",
-    SICK_LMS_TYPE_221_S20  : "LMS221;S19",
-    SICK_LMS_TYPE_291_S05  : "LMS221;S20",
-    SICK_LMS_TYPE_291_S14  : "LMS291;S05",
-    SICK_LMS_TYPE_291_S15  : "LMS291;S14",
-    SICK_LMS_TYPE_UNKNOWN  : "UNKNOWN",
+    SICK_LMS_TYPE_200_30106 : "LMS200;30106",
+    SICK_LMS_TYPE_211_30106 : "LMS211;30106",
+    SICK_LMS_TYPE_211_30206 : "LMS211;30206",
+    SICK_LMS_TYPE_211_S07   : "LMS211;S07",
+    SICK_LMS_TYPE_211_S14   : "LMS211;S14",
+    SICK_LMS_TYPE_211_S15   : "LMS211;S15",
+    SICK_LMS_TYPE_211_S19   : "LMS211;S19",
+    SICK_LMS_TYPE_211_S20   : "LMS211;S20",
+    SICK_LMS_TYPE_221_30106 : "LMS220;30106",
+    SICK_LMS_TYPE_221_30206 : "LMS221;30106",
+    SICK_LMS_TYPE_221_S07   : "LMS221;30206",
+    SICK_LMS_TYPE_221_S14   : "LMS221;S07",
+    SICK_LMS_TYPE_221_S15   : "LMS221;S14",
+    SICK_LMS_TYPE_221_S16   : "LMS221;S15",
+    SICK_LMS_TYPE_221_S19   : "LMS221;S16",
+    SICK_LMS_TYPE_221_S20   : "LMS221;S19",
+    SICK_LMS_TYPE_291_S05   : "LMS221;S20",
+    SICK_LMS_TYPE_291_S14   : "LMS291;S05",
+    SICK_LMS_TYPE_291_S15   : "LMS291;S14",
+    SICK_LMS_TYPE_UNKNOWN   : "UNKNOWN",
 }
 
 make_reversible(supported_models)
 
+###
+### Types of LMS variants
+###
 SICK_LMS_VARIANT_2XX_TYPE_6 = 0x00  # Standard LMS 2xx type 6 models
 SICK_LMS_VARIANT_SPECIAL = 0x01  # Special models (i.e. LMS211-/221-S19/-S20
 SICK_LMS_VARIANT_UNKNOWN = 0xFF  # Unknown LMS variant
@@ -95,16 +106,19 @@ sick_lms_variants = {
     SICK_LMS_VARIANT_UNKNOWN   : "SICK_LMS_VARIANT_UNKNOWN",
 }
 
+###
+### Variant configurations of the LMS
+###
 SICK_SCAN_ANGLE_90 = 90  # Scanning angle of 90 degrees
 SICK_SCAN_ANGLE_100 = 100  # Scanning angle of 100 degrees
 SICK_SCAN_ANGLE_180 = 180  # Scanning angle of 180 degrees
 SICK_SCAN_ANGLE_UNKNOWN = 0xFF  # Unknown scanning angle
 
+# byte codes associated with setting these angles
 sick_lms_scan_angles = {
-    SICK_SCAN_ANGLE_90     : b'\xff',
-    SICK_SCAN_ANGLE_100    : b'\x64',
-    SICK_SCAN_ANGLE_180    : b'\xb4',
-    SICK_SCAN_ANGLE_UNKNOWN: b'\xff',
+    SICK_SCAN_ANGLE_90 : b'\xff',
+    SICK_SCAN_ANGLE_100: b'\x64',
+    SICK_SCAN_ANGLE_180: b'\xb4',
 }
 
 SICK_SCAN_RESOLUTION_25 = 25  # 0.25 degree angular resolution
@@ -112,13 +126,16 @@ SICK_SCAN_RESOLUTION_50 = 50  # 0.50 degree angular resolution
 SICK_SCAN_RESOLUTION_100 = 100  # 1.00 degree angular resolution
 SICK_SCAN_RESOLUTION_UNKNOWN = 0xFF  # Unknown angular resolution
 
+# byte codes associated with setting these resolutions
 sick_lms_scan_resolutions = {
-    SICK_SCAN_RESOLUTION_25     : b'\x64',
-    SICK_SCAN_RESOLUTION_50     : b'\x32',
-    SICK_SCAN_RESOLUTION_100    : b'\x19',
-    SICK_SCAN_RESOLUTION_UNKNOWN: b'\xff',
+    SICK_SCAN_RESOLUTION_25 : b'\x64',
+    SICK_SCAN_RESOLUTION_50 : b'\x32',
+    SICK_SCAN_RESOLUTION_100: b'\x19',
 }
 
+###
+### Measuring configurations of the LMS
+###
 SICK_MEASURING_UNITS_CM = 0x00  # Measured values are in centimeters
 SICK_MEASURING_UNITS_MM = 0x01  # Measured values are in milimeters
 SICK_MEASURING_UNITS_UNKNOWN = 0xFF  # Unknown units
@@ -168,6 +185,9 @@ sick_lms_status = {
     SICK_STATUS_UNKNOWN: "SICK_STATUS_UNKNOWN",
 }
 
+###
+### Measuring mode configurations of the LMS
+###
 SICK_MS_MODE_8_OR_80_FA_FB_DAZZLE = 0x00  # Measurement range 8m/80m; fields A,B and Dazzle (Default)
 SICK_MS_MODE_8_OR_80_REFLECTOR = 0x01  # Measurement range 8/80m; reflector bits in 8 levels
 SICK_MS_MODE_8_OR_80_FA_FB_FC = 0x02  # Measurement range 8/80m; fields A,B, and C
@@ -233,6 +253,9 @@ sick_lms_operating_modes = {
 }
 make_reversible(sick_lms_measuring_modes)
 
+###
+### Baud configurations of the LMS
+###
 SICK_BAUD_9600 = 0x42  # 9600 baud
 SICK_BAUD_19200 = 0x41  # 19200 baud
 SICK_BAUD_38400 = 0x40  # 38400 baud
@@ -275,6 +298,9 @@ restart_codes = [
     "LMS2xx operates as a slave, immediate restart",
 ]
 
+###
+### Exception classes
+###
 
 class SickIOException(IOError):
     pass
@@ -284,12 +310,18 @@ class SickTimeoutException(TimeoutError):
     pass
 
 
-class SickConfigException(TimeoutError):
+class SickConfigException(IOError):
     pass
 
-
 def get_max_distance(measuring_mode):
-    if measuring_mode in (SICK_MS_MODE_8_OR_80_FA_FB_DAZZLE, SICK_MS_MODE_8_OR_80_REFLECTOR, SICK_MS_MODE_8_OR_80_FA_FB_FC):
+    """
+    Get the integer value associated with a measuring mode
+    
+    :param measuring_mode: A constant representing the current measuring mode 
+    :return: 0.0, 8.0, 16.0, or 32.0 (meters)
+    """
+    if measuring_mode in (
+            SICK_MS_MODE_8_OR_80_FA_FB_DAZZLE, SICK_MS_MODE_8_OR_80_REFLECTOR, SICK_MS_MODE_8_OR_80_FA_FB_FC):
         return 8.0
     elif measuring_mode in (SICK_MS_MODE_16_REFLECTOR, SICK_MS_MODE_16_FA_FB):
         return 16.0
@@ -298,7 +330,14 @@ def get_max_distance(measuring_mode):
     else:
         return 0.0
 
+
+###
+### Status string functions
+###
 def availability_to_string(availability_code):
+    """
+    Translate an availability code to a string
+    """
     if availability_code == 0:
         return "Default (unspecified)"
 

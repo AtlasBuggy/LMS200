@@ -7,7 +7,7 @@ import numpy as np
 
 from atlasbuggy.plotters.liveplotter import LivePlotter
 from atlasbuggy.plotters.plot import RobotPlot
-from sicklms.lms import SickLMS
+from sicklms import SickLMS
 from slam import SLAM
 
 
@@ -88,4 +88,4 @@ class MyLMS(SickLMS):
 
     def stopped(self):
         if self.slam is not None and self.make_image:
-            self.slam.make_image(self._log_info["file_name"] + " map")
+            self.slam.make_image("maps/" + self._log_info["file_name"] + " map")

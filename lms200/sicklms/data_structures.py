@@ -3,6 +3,10 @@ from sicklms.constants import *
 
 
 class LmsOperatingStatus:
+    """
+    A data structure representing the current operating status of the lms device. Updated when
+    SickLms' _get_status is called. This structure has similar values as config
+    """
     def __init__(self):
         self.scan_angle = 0  # Sick scanning angle (deg)
         self.scan_resolution = 0  # Sick angular resolution (1/100 deg)
@@ -132,6 +136,10 @@ class LmsOperatingStatus:
 
 
 class LmsConfig:
+    """
+    A data structure representing the current configuration of the lms device. Updated when
+    SickLms' _get_config is called. This structure has similar values as operating status
+    """
     def __init__(self):
         self.measuring_mode = 0  # Sick measuring mode
 
@@ -161,7 +169,7 @@ class LmsConfig:
 
         self.sick_restart = 0  # Indicates the restart level of the device
 
-        self.restart_time = 0  # Inidicates the restart time of the device
+        self.restart_time = 0  # Indicates the restart time of the device
 
         # Multiple evaluation for objects less than the blanking size
         self.multiple_evaluation_suppressed_objects = 0
@@ -252,7 +260,9 @@ class LmsConfig:
         self.fields_b_c_restart_times = response.parse_int(30, 2)
         self.dazzling_multiple_evaluation = response.parse_int(32, 2)
 
-    def build_message(self) -> Message:
+    def build_message(self) -> bytes:
+        # TODO: fix configuration message building. Only mode and unit switching works
+
         payload = b'\x77\x00\x00\x70\x00\x00\x00\x01\x00\x00\x02\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
                   b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00'
 
@@ -312,10 +322,13 @@ class LmsConfig:
         # payload += Message.int_to_byte(self.fields_b_c_restart_times, 2)
         # payload += Message.int_to_byte(self.dazzling_multiple_evaluation, 2)
 
-        return Message(payload)
+        return Message.make(payload)
 
 
 class ScanProfile:
+    """
+    This class and all subclass represent data in different scan types
+    """
     def __init__(self):
         # Number of measurements
         self.num_measurements = 0
